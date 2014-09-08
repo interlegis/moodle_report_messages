@@ -68,9 +68,9 @@ $fullname = $DB->sql_fullname('u.firstname', 'u.lastname');
 
 $sql = "
 select u.id, $fullname as fullname, u.picture, u.firstname, u.lastname, u.imagealt, u.email,
-  (select count(*) from mdl_message where useridfrom=u.id and useridto<>u.id and useridto $in_user) as totalsend,
-  (select count(*) from mdl_message where useridto=u.id and useridfrom<>u.id and useridfrom $in_user) as totalreceive
-from mdl_user u
+  (select count(*) from {message} where useridfrom=u.id and useridto<>u.id and useridto $in_user) as totalsend,
+  (select count(*) from {message} where useridto=u.id and useridfrom<>u.id and useridfrom $in_user) as totalreceive
+from {user} u
 where u.id $in_user
 ";
 
