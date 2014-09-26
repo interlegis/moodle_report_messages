@@ -72,6 +72,7 @@ select u.id, $fullname as fullname, u.picture, u.firstname, u.lastname, u.imagea
   (select count(*) from {message} where useridto=u.id and useridfrom<>u.id and useridfrom $in_user) as totalreceive
 from {user} u
 where u.id $in_user
+order by fullname
 ";
 
 $data = $DB->get_records_sql($sql, array_merge($param_users,$param_users,$param_users));
