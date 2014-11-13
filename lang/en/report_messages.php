@@ -32,5 +32,6 @@ $string['reporttitle'] = 'Message report to user {$a->fullname}';
 $string['exchangedmessages'] = '{$a->userlink} {$a->total_messages} messages exchanged with {$a->fullname}';
 $string['message'] = 'Message body';
 $string['viewdetail'] = 'View details';
+$string['role'] = 'Role';
 $string['totalsended'] = 'Total sended messages';
 $string['totalreceived'] = 'Total received messages';

@@ -57,9 +57,9 @@ $messagestable = new html_table();
 $messagestable->attributes['class'] = 'generaltable boxaligncenter';
 $messagestable->cellpadding = 5;
 $messagestable->id = 'messagestable';
-$messagestable->head = array(get_string('fullname'), get_string('totalsended', 'report_messages'), 
+$messagestable->head = array(get_string('fullname'), get_string('role', 'report_messages'), get_string('totalsended', 'report_messages'), 
   get_string('totalreceived','report_messages'), $strviewdetail);
-$messagestable->align = array('left', 'right', 'right', 'center');
+$messagestable->align = array('left', 'right', 'right', 'right', 'center');
 $messagestable->data = array();
 
 $userlist = get_enrolled_users($context, '', 0, 'u.id');
@@ -69,19 +69,27 @@ $fullname = $DB->sql_fullname('u.firstname', 'u.lastname');
 $sql = "
 select u.id, $fullname as fullname, u.picture, u.firstname, u.lastname, u.imagealt, u.email,
   (select count(*) from {message} where useridfrom=u.id and useridto<>u.id and useridto $in_user) as totalsend,
-  (select count(*) from {message} where useridto=u.id and useridfrom<>u.id and useridfrom $in_user) as totalreceive
+  (select count(*) from {message_read} where useridfrom=u.id and useridto<>u.id and useridto $in_user) as totalsendread,
+  (select count(*) from {message} where useridto=u.id and useridfrom<>u.id and useridfrom $in_user) as totalreceive,
+  (select count(*) from {message_read} where useridto=u.id and useridfrom<>u.id and useridfrom $in_user) as totalreceiveread
 from {user} u
 where u.id $in_user
 order by fullname
 ";
 
-$data = $DB->get_records_sql($sql, array_merge($param_users,$param_users,$param_users));
+$data = $DB->get_records_sql($sql, array_merge($param_users,$param_users,$param_users,$param_users,$param_users));
 
 foreach ($data as $user) {
+    $roles = role_fix_names(get_user_roles($context, $user->id));
+    $str_roles = "";
+    foreach ($roles as $role) {
+        $str_roles .= $role->localname.", ";
+    }
+    $str_roles = substr($str_roles, 0, -2);
     $upic = $OUTPUT->user_picture($user);
     $ulink = "<a href=\"{$CFG->wwwroot}/user/view.php?id={$user->id}&course={$course->id}\">{$upic}</a>";
     $link = "<a href=\"$CFG->wwwroot/report/messages/user.php?id=$user->id&course=$course->id\">$strviewdetail</a>";
-    $messagestable->data[] = array($ulink.' '.$user->fullname, $user->totalsend, $user->totalreceive, $link);
+    $messagestable->data[] = array($ulink.' '.$user->fullname, $str_roles, $user->totalsend+$user->totalsendread, $user->totalreceive+$user->totalreceiveread, $link);
 }
 
 echo html_writer::table($messagestable);

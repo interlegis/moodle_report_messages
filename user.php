@@ -59,31 +59,40 @@ $PAGE->set_heading($course->fullname);
 echo $OUTPUT->header();
 echo '<h2>'.get_string('reporttitle','report_messages',array('fullname'=>fullname($user))).'</h2>';
 
-$from = $DB->get_records_sql('select distinct m.useridfrom as id from {message} m where m.useridto = ? and m.useridfrom <> ?', array($user->id, $user->id));
-$to = $DB->get_records_sql('select distinct m.useridto as id from {message} m where m.useridfrom = ? and m.useridto <> ?', array($user->id, $user->id));
+$sql = "
+    (SELECT DISTINCT m.useridfrom as id
+    FROM {message} m
+    WHERE m.useridto = ? AND m.useridfrom <> ?)
+
+    UNION
+
+    (SELECT DISTINCT mr.useridfrom as id
+    FROM {message_read} mr
+    WHERE mr.useridto = ? AND mr.useridfrom <> ?)
+
+    UNION
+
+    (SELECT distinct m.useridto as id
+    FROM {message} m
+    WHERE m.useridfrom = ? AND m.useridto <> ?)
+
+    UNION
+
+    (SELECT distinct mr.useridto as id
+    FROM {message_read} mr
+    WHERE mr.useridfrom = ? AND mr.useridto <> ?)
+";
+$userlist = $DB->get_records_sql($sql, array($user->id, $user->id, $user->id, $user->id,$user->id, $user->id, $user->id, $user->id));
+list($in_user, $param_users) = $DB->get_in_or_equal(array_keys($userlist), SQL_PARAMS_QM);
 $contacts = array();
 $sqlfullname = $DB->sql_fullname('u.firstname','u.lastname');
 $sql = "
-    select u.id, $sqlfullname as fullname, count(*) as total_messages, u.picture, u.firstname, u.lastname, u.imagealt, u.email
-    from {user} u, {message} m
-    where u.id = ? and
-      ((m.useridfrom = ? and m.useridto = ?) or
-       (m.useridfrom = ? and m.useridto = ?))
-    group by u.id, u.username, u.firstname, u.lastname, u.email
+    select u.*, $sqlfullname as fullname
+    from {user} u
+    where u.id {$in_user}
 ";
 
-foreach ($from as $u) {
-    if (is_enrolled($coursecontext, $u)) {
-        $contacts[$u->id] = $DB->get_record_sql($sql, array($u->id, $u->id, $user->id, $user->id, $u->id));
-    }
-}
-
-
-foreach ($to as $u) {
-    if (is_enrolled($coursecontext, $u)) {
-        $contacts[$u->id] = $DB->get_record_sql($sql, array($u->id, $u->id, $user->id, $user->id, $u->id));
-    }
-}
+$contacts = $DB->get_records_sql($sql, $param_users);
 
 if (empty($contacts)) {
     echo $OUTPUT->notification(get_string('nothingtodisplay'));
@@ -91,27 +100,36 @@ if (empty($contacts)) {
     $sqlfromname = $DB->sql_fullname('fu.firstname','fu.lastname');
     $sqltoname = $DB->sql_fullname('tu.firstname','tu.lastname');
     $sql = "
-        select m.timecreated, $sqlfromname as fromuser, $sqltoname as touser, m.fullmessage, m.fullmessageformat 
+        (select m.timecreated, $sqlfromname as fromuser, $sqltoname as touser, m.fullmessage, m.fullmessageformat 
         from {message} m
           inner join {user} fu on fu.id = m.useridfrom
           inner join {user} tu on tu.id = m.useridto
         where (m.useridfrom = ? and m.useridto = ?) or
               (m.useridfrom = ? and m.useridto = ?)
-        order by m.timecreated desc
+        order by m.timecreated desc)
+
+        UNION
+
+        (select mr.timecreated, $sqlfromname as fromuser, $sqltoname as touser, mr.fullmessage, mr.fullmessageformat 
+        from {message_read} mr
+          inner join {user} fu on fu.id = mr.useridfrom
+          inner join {user} tu on tu.id = mr.useridto
+        where (mr.useridfrom = ? and mr.useridto = ?) or
+              (mr.useridfrom = ? and mr.useridto = ?)
+        order by mr.timecreated desc)
     ";
 
     foreach ($contacts as $contact) {
+        $messages = $DB->get_records_sql($sql, array($user->id, $contact->id, $contact->id, $user->id, $user->id, $contact->id, $contact->id, $user->id));
         echo $OUTPUT->box_start();
         $upic = $OUTPUT->user_picture($contact);
         $ulink = "<a href=\"{$CFG->wwwroot}/user/view.php?id={$contact->id}&course={$course->id}\">{$upic}</a>";
-        $a = array('userlink'=>$ulink, 'total_messages'=>$contact->total_messages, 'fullname'=>$contact->fullname);
+        $a = array('userlink'=>$ulink, 'total_messages'=>count($messages), 'fullname'=>$contact->fullname);
         $head = get_string('exchangedmessages', 'report_messages', $a);
         echo "<h3>$head</h3>";
-
         $table = new html_table();
-        $tabl->attributes['class'] = 'generaltable boxaligncenter';
+        $table->attributes['class'] = 'generaltable boxaligncenter';
         $table->head = array(get_string('date'), get_string('from'), get_string('to'), get_string('message', 'report_messages'));
-        $messages = $DB->get_records_sql($sql, array($user->id, $contact->id, $contact->id, $user->id));
         $table->data = array();
         foreach ($messages as $message) {
             $table->data[] = array(userdate($message->timecreated), $message->fromuser, $message->touser, format_text($message->fullmessage, $message->fullmessageformat));
