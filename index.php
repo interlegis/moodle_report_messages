@@ -81,9 +81,16 @@ $data = $DB->get_records_sql($sql, array_merge($param_users,$param_users,$param_
 
 foreach ($data as $user) {
     $roles = role_fix_names(get_user_roles($context, $user->id));
+    $possible_role = false;
     $str_roles = "";
     foreach ($roles as $role) {
+        if(!$possible_role && in_array($role->localname, Array("Estudante"))) {
+            $possible_role = true;
+        }
         $str_roles .= $role->localname.", ";
+    }
+    if(!$possible_role) {
+        continue;
     }
     $str_roles = substr($str_roles, 0, -2);
     $upic = $OUTPUT->user_picture($user);
